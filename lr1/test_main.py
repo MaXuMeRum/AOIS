@@ -1,6 +1,6 @@
 import unittest
 
-from main import *
+from lib import *
 
 class TestBinaryFunctions(unittest.TestCase):
 
