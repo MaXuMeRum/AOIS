@@ -1,7 +1,15 @@
 from main import *
 
+def print_table(table, variables):
+    """Выводит таблицу истинности."""
+    header = " | ".join(variables) + " | F"
+    print(header)
+    print("-" * len(header))
+    for row in table:
+        print(" | ".join(map(str, row)))
+
 def main():
-    expression = input("Введите логическую функцию: ")
+    expression = input("Введите логическую функцию: ")  # Ввод выражения пользователем
     variables = sorted(set(re.findall(r'[a-e]', expression)))
 
     print("\nПеременные:", variables)
@@ -27,4 +35,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
