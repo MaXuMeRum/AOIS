@@ -13,7 +13,6 @@ def parse_expression(expr):
     return expr
 
 def evaluate_expression(expr, local_dict):
-    """Вычисляет значение выражения без использования eval."""
     # Преобразуем выражение в функцию
     expr = parse_expression(expr)
     # Создаем лямбда-функцию, которая будет выполнять выражение
