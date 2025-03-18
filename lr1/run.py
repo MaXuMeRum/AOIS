@@ -50,14 +50,14 @@ quotient_bin, remainder_bin = divide_binary_code(x1_bin, x2_bin)
 if quotient_bin == "Ошибка: деление на ноль":
     print(quotient_bin)
 else:
-    quotient_dec = direct_binary_to_dec('0' + quotient_bin)  # Добавляем знаковый бит
-    remainder_dec = direct_binary_to_dec('0' + remainder_bin)  # Добавляем знаковый бит
+    quotient_dec = direct_binary_to_dec(quotient_bin)  # Учитываем знаковый бит
+    remainder_dec = direct_binary_to_dec(remainder_bin)  # Учитываем знаковый бит
     print(f"Результат (в 10-ом формате): {quotient_dec}")
-    print(f"Прямой код: {to_direct_binary(quotient_dec)}")
+    print(f"Прямой код: {quotient_bin}")
     print(f"Обратный код: {to_reverse_binary(quotient_dec)}")
     print(f"Дополнительный код: {to_additional_binary(quotient_dec)}")
     print(f"Остаток (в 10-ом формате): {remainder_dec}")
-    print(f"Прямой код остатка: {to_direct_binary(remainder_dec)}")
+    print(f"Прямой код остатка: {remainder_bin}")
     print(f"Обратный код остатка: {to_reverse_binary(remainder_dec)}")
     print(f"Дополнительный код остатка: {to_additional_binary(remainder_dec)}")
 
