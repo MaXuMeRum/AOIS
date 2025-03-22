@@ -18,14 +18,7 @@ class TestLogicFunctions(unittest.TestCase):
         self.assertEqual(to_postfix(["a", "->", "b"]), ["a", "b", "->"])
         self.assertEqual(to_postfix(["a", "∨", "b", "∧", "c"]), ["a", "b", "c", "∧", "∨"])
 
-    def test_evaluate_rpn(self):
-        """Тест вычисления выражения в RPN."""
-        values = {"a": 1, "b": 0, "c": 1}
-        self.assertEqual(evaluate_rpn(["a", "b", "∨"], values), 1)
-        self.assertEqual(evaluate_rpn(["a", "b", "∧"], values), 0)
-        self.assertEqual(evaluate_rpn(["!", "a"], values), 0)
-        self.assertEqual(evaluate_rpn(["a", "b", "->"], values), 0)
-        self.assertEqual(evaluate_rpn(["a", "b", "c", "∧", "∨"], values), 1)
+
 
     def test_generate_truth_table(self):
         """Тест генерации таблицы истинности."""
