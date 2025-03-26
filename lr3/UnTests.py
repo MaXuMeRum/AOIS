@@ -1,58 +1,114 @@
 import unittest
-from itertools import combinations
+from io import StringIO
+import sys
+from unittest.mock import patch
+from main import (input_terms, minimize_sknf_calculation,
+                         minimize_sdnf_calculation, minimize_sknf_table)
 
-# Импортируем функции, которые нужно протестировать
-from main import merge_terms, minimize_form_calculational, minimize_cnf_tabular
 
-class TestLogicFunctions(unittest.TestCase):
+class TestLogicMinimization(unittest.TestCase):
+    def setUp(self):
+        # Сохраняем оригинальный stdout
+        self.original_stdout = sys.stdout
+        sys.stdout = StringIO()
 
-    # Тесты для функции merge_terms
-    def test_merge_terms(self):
-        # Склеивание возможно
-        self.assertEqual(merge_terms(['0', '1', '1'], ['0', '1', '0']), ['0', '1', 'X'])
-        self.assertEqual(merge_terms(['1', '0', '1'], ['1', '1', '1']), ['1', 'X', '1'])
-        self.assertEqual(merge_terms(['1', '0', '0'], ['1', '0', '1']), ['1', '0', 'X'])
+    def tearDown(self):
+        # Восстанавливаем stdout
+        sys.stdout = self.original_stdout
 
-        # Склеивание невозможно
-        self.assertIsNone(merge_terms(['0', '0', '0'], ['1', '1', '1']))  # Все переменные разные
-        self.assertIsNone(merge_terms(['0', '1', '0'], ['1', '0', '1']))  # Две переменные разные
+    def test_input_terms(self):
+        # Тест для функции ввода термов
+        with patch('builtins.input', side_effect=['a∨b', '¬a∨c', '']):
+            terms = input_terms(2)
+            self.assertEqual(terms, ['a∨b', '¬a∨c'])
 
-    # Тесты для функции minimize_form_calculational
-    def test_minimize_form_calculational(self):
-        # Минимизация DNF
-        dnf = [
-            ['0', '1', '1'],  # ¬a ∧ b ∧ c
-            ['1', '0', '0'],   # a ∧ ¬b ∧ ¬c
-            ['1', '0', '1'],   # a ∧ ¬b ∧ c
-            ['1', '1', '0'],   # a ∧ b ∧ ¬c
-            ['1', '1', '1']    # a ∧ b ∧ c
-        ]
-        expected_dnf = [['1', 'X', 'X'], ['X', '1', '1']]  # Ожидаемый результат: a ∨ (b ∧ c)
-        self.assertEqual(minimize_form_calculational(dnf), expected_dnf)
+    def test_minimize_sknf_calculation(self):
+        # Тест минимизации СКНФ
+        variables = ['a', 'b', 'c']
+        terms = ['a∨b∨c', 'a∨b∨¬c', 'a∨¬b∨c']
 
-        # Минимизация CNF
-        cnf = [
-            ['1', '1', '1'],  # a ∨ b ∨ c
-            ['1', '0', '0'],  # a ∨ ¬b ∨ ¬c
-            ['1', '0', '1'],  # a ∨ ¬b ∨ c
-            ['1', '1', '0'],  # a ∨ b ∨ ¬c
-            ['0', '1', '1']   # ¬a ∨ b ∨ c
-        ]
-        expected_cnf = [['1', 'X', 'X'], ['X', '1', '1']]  # Ожидаемый результат: a ∧ (b ∨ c)
-        self.assertEqual(minimize_form_calculational(cnf), expected_cnf)
+        minimize_sknf_calculation(variables, terms)
 
-    # Тесты для функции minimize_cnf_tabular
-    def test_minimize_cnf_tabular(self):
-        cnf = [
-            ['1', '1', '1'],  # a ∨ b ∨ c
-            ['1', '0', '0'],  # a ∨ ¬b ∨ ¬c
-            ['1', '0', '1'],  # a ∨ ¬b ∨ c
-            ['1', '1', '0'],  # a ∨ b ∨ ¬c
-            ['0', '1', '1']   # ¬a ∨ b ∨ c
-        ]
-        expected_cnf = [['1', '1', '1'], ['1', '0', '0']]  # Ожидаемый результат
-        self.assertEqual(minimize_cnf_tabular(cnf), expected_cnf)
+        output = sys.stdout.getvalue()
+        self.assertIn('a∨b', output)
+        self.assertIn('a∨c', output)
+        self.assertIn('Минимизированная СКНФ', output)
 
-# Запуск тестов
-if __name__ == "__main__":
+    def test_minimize_sdnf_calculation(self):
+        # Тест минимизации СДНФ
+        variables = ['a', 'b', 'c']
+        terms = ['¬a∧b∧c', 'a∧¬b∧¬c', 'a∧¬b∧c', 'a∧b∧¬c', 'a∧b∧c']
+
+        minimize_sdnf_calculation(variables, terms)
+
+        output = sys.stdout.getvalue()
+        self.assertIn('a∧¬b', output)
+        self.assertIn('a∧b', output)
+        self.assertIn('Минимизированная СДНФ', output)
+
+    def test_minimize_sknf_table(self):
+        # Тест табличного метода минимизации СКНФ
+        variables = ['a', 'b']
+        terms = ['a∨b', 'a∨¬b']
+
+        minimize_sknf_table(variables, terms)
+
+        output = sys.stdout.getvalue()
+        self.assertIn('a', output)
+        self.assertIn('Импликанты\\Термы', output)
+        self.assertIn('Минимизированная СКНФ', output)
+
+    def test_empty_input(self):
+        # Тест пустого ввода
+        variables = ['a', 'b']
+        terms = []
+
+        minimize_sknf_calculation(variables, terms)
+        output = sys.stdout.getvalue()
+        self.assertIn('Не удалось минимизировать', output)
+
+    def test_no_minimization_possible(self):
+        # Тест случая, когда минимизация невозможна
+        variables = ['a', 'b']
+        terms = ['a∨b', '¬a∨¬b']
+
+        minimize_sknf_calculation(variables, terms)
+        output = sys.stdout.getvalue()
+        self.assertIn('Невозможно минимизировать дальше', output)
+
+
+class TestEdgeCases(unittest.TestCase):
+    def setUp(self):
+        self.original_stdout = sys.stdout
+        sys.stdout = StringIO()
+
+    def tearDown(self):
+        sys.stdout = self.original_stdout
+
+    def test_single_term_sknf(self):
+        variables = ['a', 'b']
+        terms = ['a∨b']
+
+        minimize_sknf_calculation(variables, terms)
+        output = sys.stdout.getvalue()
+        self.assertIn('Невозможно минимизировать дальше', output)
+
+    def test_duplicate_terms(self):
+        variables = ['a', 'b']
+        terms = ['a∨b', 'a∨b']
+
+        minimize_sknf_calculation(variables, terms)
+        output = sys.stdout.getvalue()
+        self.assertIn('Невозможно минимизировать дальше', output)
+
+    def test_all_variables_used(self):
+        variables = ['a', 'b', 'c']
+        terms = ['a∨b∨c', 'a∨b∨¬c']
+
+        minimize_sknf_calculation(variables, terms)
+        output = sys.stdout.getvalue()
+        self.assertIn('a∨b', output)
+
+
+if __name__ == '__main__':
     unittest.main()
