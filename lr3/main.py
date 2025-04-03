@@ -1,200 +1,321 @@
-def input_terms(variables_count):
-    """Функция для ввода термов от пользователя"""
-    terms = []
-    print(f"Введите термы (используйте {variables_count} переменных, например, 'a∨b∨¬c'):")
-    while True:
-        term = input("Введите терм (или пустую строку чтобы закончить): ").strip()
-        if not term:
-            break
-        terms.append(term)
-    return terms
+from itertools import product, combinations
 
 
-def minimize_sknf_calculation(variables, terms):
-    """Минимизация СКНФ расчетным методом"""
-    print("\n1. Минимизация СКНФ расчетным методом")
-    print(f"Исходная СКНФ: {' ∧ '.join(terms)}")
+def print_header(title):
+    print("\n" + "=" * 50)
+    print(f"{title:^50}")
+    print("=" * 50)
 
-    # Этап склеивания
-    print("\nЭтап склеивания:")
-    new_terms = []
-    n = len(variables)
 
-    for i in range(len(terms)):
-        for j in range(i + 1, len(terms)):
-            # Находим общие переменные в скобках
-            diff = 0
-            common = []
-            for v in variables:
-                vi = v in terms[i].split('∨')
-                vj = v in terms[j].split('∨')
-                if vi != vj:
-                    diff += 1
-                    if diff > 1:
-                        break
-                elif vi and vj:
-                    common.append(v)
+def print_step(title):
+    print("\n" + "-" * 50)
+    print(f"{title:^50}")
+    print("-" * 50)
 
-            if diff == 1:
-                new_term = '∨'.join(common)
-                print(f"{terms[i]} ∨ {terms[j]} => {new_term}")
-                if new_term not in new_terms:
-                    new_terms.append(new_term)
 
-    print("\nРезультат после склеивания:")
-    print(' ∧ '.join(new_terms) if new_terms else "Невозможно минимизировать дальше")
+class Minimizer:
+    def __init__(self, variables):
+        self.variables = variables
+        self.n = len(variables)
 
-    # Проверка на лишние импликанты
-    print("\nПроверка на лишние импликанты:")
-    essential = []
-    for term in new_terms:
-        print(f"Проверяем {term}:")
-        temp = [t for t in new_terms if t != term]
-        if not temp:
-            essential.append(term)
-            continue
+    def term_to_str(self, term):
+        """Преобразует терм в строку"""
+        res = []
+        for var, val in zip(self.variables, term):
+            if val == 0:
+                res.append(f"¬{var}")
+            elif val == 1:
+                res.append(var)
+        return "".join(res)
 
-        # Проверяем покрытие
-        covered = True
-        for t in terms:
-            if not any(all(v in t.split('∨') for v in et.split('∨')) for et in temp):
-                covered = False
+    def str_to_term(self, s):
+        """Преобразует строку в терм (с учетом отрицаний)"""
+        term = []
+        i = 0
+        while i < len(s):
+            if s[i] == '¬':
+                term.append(0)
+                i += 1
+            else:
+                term.append(1)
+            i += 1
+        return tuple(term)
+
+    def is_implicant_covered(self, implicant, term):
+        """Проверяет, покрывает ли импликант терм"""
+        for i in range(self.n):
+            if implicant[i] != 'X' and int(implicant[i]) != term[i]:
+                return False
+        return True
+
+    def can_merge(self, term1, term2):
+        """Проверяет, можно ли склеить два терма"""
+        diff = 0
+        res = []
+        for i in range(self.n):
+            if term1[i] == term2[i]:
+                res.append(term1[i])
+            else:
+                res.append('X')
+                diff += 1
+        return (diff == 1, tuple(res))
+
+    def calculate_method(self, terms, is_dnf=True):
+        """Расчетный метод минимизации"""
+        print_step("Этап склеивания")
+        current_terms = [tuple(str(bit) for bit in term) for term in terms]
+        prime_implicants = set()
+
+        while True:
+            new_terms = set()
+            used = set()
+
+            for i, j in combinations(range(len(current_terms)), 2):
+                can_merge, merged = self.can_merge(current_terms[i], current_terms[j])
+                if can_merge:
+                    new_terms.add(merged)
+                    used.add(i)
+                    used.add(j)
+
+            # Добавляем неиспользованные термы в простые импликанты
+            for i in range(len(current_terms)):
+                if i not in used:
+                    prime_implicants.add(current_terms[i])
+
+            print("Склеенные термы:")
+            for term in new_terms:
+                print(self.implicant_to_str(term))
+
+            if not new_terms:
                 break
 
-        if not covered:
-            essential.append(term)
-            print(f"Импликанта {term} необходима")
+            current_terms = list(new_terms)
+
+        prime_implicants = list(prime_implicants)
+        print_step("Результат после склеивания")
+        print(" ∨ ".join(self.implicant_to_str(imp) for imp in prime_implicants))
+
+        # Удаление лишних импликант
+        print_step("Проверка на лишние импликанты")
+        essential_implicants = []
+        for i in range(len(prime_implicants)):
+            cover_terms = []
+            # Проверяем, покрываются ли термы другими импликантами
+            for term in terms:
+                if self.is_implicant_covered(prime_implicants[i], term):
+                    covered_by_others = False
+                    for j in range(len(prime_implicants)):
+                        if j != i and self.is_implicant_covered(prime_implicants[j], term):
+                            covered_by_others = True
+                            break
+                    if not covered_by_others:
+                        cover_terms.append(term)
+
+            if cover_terms:
+                print(f"Импликант {self.implicant_to_str(prime_implicants[i])}")
+                print(f"Покрывает термы: {', '.join(self.term_to_str(t) for t in cover_terms)}")
+                essential_implicants.append(prime_implicants[i])
+            else:
+                print(f"Импликант {self.implicant_to_str(prime_implicants[i])} - лишний")
+
+        print_step("Минимизированная форма")
+        result = " ∨ ".join(self.implicant_to_str(imp) for imp in essential_implicants)
+        print(result)
+        return result
+
+    def implicant_to_str(self, implicant):
+        """Преобразует импликант в строку"""
+        res = []
+        for var, val in zip(self.variables, implicant):
+            if val == '0':
+                res.append(f"¬{var}")
+            elif val == '1':
+                res.append(var)
+            # 'X' пропускаем
+        if not res:  # для случая, когда все 'X'
+            return "1" if len(self.variables) > 0 else "0"
+        return "".join(res)
+
+    def table_method(self, terms, is_dnf=True):
+        """Расчетно-табличный метод"""
+        print_step("Этап склеивания (как в расчетном методе)")
+        current_terms = [tuple(str(bit) for bit in term) for term in terms]
+        prime_implicants = set()
+
+        while True:
+            new_terms = set()
+            used = set()
+
+            for i, j in combinations(range(len(current_terms)), 2):
+                can_merge, merged = self.can_merge(current_terms[i], current_terms[j])
+                if can_merge:
+                    new_terms.add(merged)
+                    used.add(i)
+                    used.add(j)
+
+            for i in range(len(current_terms)):
+                if i not in used:
+                    prime_implicants.add(current_terms[i])
+
+            if not new_terms:
+                break
+
+            current_terms = list(new_terms)
+
+        prime_implicants = list(prime_implicants)
+
+        # Построение таблицы покрытий
+        print_step("Таблица покрытий")
+        header = ["Импликанты\\Конституенты"] + [self.term_to_str(t) for t in terms]
+        print("{:<20}".format(header[0]), end="")
+        for col in header[1:]:
+            print("{:>10}".format(col), end="")
+        print()
+
+        for imp in prime_implicants:
+            print("{:<20}".format(self.implicant_to_str(imp)), end="")
+            for term in terms:
+                if self.is_implicant_covered(imp, term):
+                    print("{:>10}".format("X"), end="")
+                else:
+                    print("{:>10}".format(""), end="")
+            print()
+
+        # Выбор существенных импликант (упрощенный)
+        essential = []
+        for term in terms:
+            covering = []
+            for imp in prime_implicants:
+                if self.is_implicant_covered(imp, term):
+                    covering.append(imp)
+            if len(covering) == 1 and covering[0] not in essential:
+                essential.append(covering[0])
+
+        print_step("Существенные импликанты")
+        for imp in essential:
+            print(self.implicant_to_str(imp))
+
+        # Попытка найти минимальное покрытие (упрощенный алгоритм)
+        remaining_terms = [t for t in terms if not any(self.is_implicant_covered(e, t) for e in essential)]
+        if remaining_terms:
+            print("Остались непокрытые термы:", ", ".join(self.term_to_str(t) for t in remaining_terms))
+            # Добавляем первый попавшийся импликант, который их покрывает
+            for imp in prime_implicants:
+                if imp not in essential and any(self.is_implicant_covered(imp, t) for t in remaining_terms):
+                    essential.append(imp)
+                    break
+
+        print_step("Минимизированная форма")
+        result = " ∨ ".join(self.implicant_to_str(imp) for imp in essential)
+        print(result)
+        return result
+
+    def karnaugh_method(self, terms, is_dnf=True):
+        """Табличный метод (карты Карно)"""
+        print_step("Карта Карно")
+
+        # Для 3 переменных создаем карту 2x4
+        if self.n == 3:
+            var1, var2, var3 = self.variables
+            print(f"Карта Карно для {var1}{var2}\\{var3}:")
+            print("     00  01  11  10")
+
+            # Создаем карту в памяти
+            karnaugh = [[0 for _ in range(4)] for _ in range(2)]
+
+            # Заполняем карту
+            for term in terms:
+                a, b, c = term
+                row = a
+                col = (b << 1) | c
+                if b and c:  # 11
+                    col = 2
+                elif b and not c:  # 10
+                    col = 3
+                elif not b and c:  # 01
+                    col = 1
+                else:  # 00
+                    col = 0
+                karnaugh[row][col] = 1
+
+            # Выводим карту
+            for row in range(2):
+                print(f"{row} |", end="")
+                for col in range(4):
+                    print(f"  {karnaugh[row][col]}", end="")
+                print()
+
+            # Находим прямоугольные области
+            rectangles = []
+
+            # Проверяем всю строку (4 клетки)
+            for row in range(2):
+                if all(karnaugh[row][col] == 1 for col in range(4)):
+                    rectangles.append((f"{var1}" if row else f"¬{var1}"))
+
+            # Проверяем столбцы (2 клетки)
+            for col1, col2 in [(0, 1), (1, 2), (2, 3), (3, 0)]:
+                if karnaugh[0][col1] == 1 and karnaugh[1][col1] == 1 and \
+                        karnaugh[0][col2] == 1 and karnaugh[1][col2] == 1:
+                    # Определяем переменные для столбцов
+                    b1, c1 = (col1 >> 1) & 1, col1 & 1
+                    b2, c2 = (col2 >> 1) & 1, col2 & 1
+                    if b1 == b2:  # меняется только c
+                        rectangles.append(f"{var2 if b1 else f'¬{var2}'}")
+                    elif c1 == c2:  # меняется только b
+                        rectangles.append(f"{var3 if c1 else f'¬{var3}'}")
+
+            # Проверяем одиночные пары
+            for row in range(2):
+                for col in range(4):
+                    if karnaugh[row][col] == 1:
+                        # Проверяем пару по вертикали
+                        if row == 0 and karnaugh[1][col] == 1:
+                            b, c = (col >> 1) & 1, col & 1
+                            rectangles.append(f"{var2 if b else f'¬{var2}'}{var3 if c else f'¬{var3}'}")
+                        # Проверяем пару по горизонтали
+                        if col < 3 and karnaugh[row][col] == 1 and karnaugh[row][col + 1] == 1:
+                            b1, c1 = (col >> 1) & 1, col & 1
+                            b2, c2 = ((col + 1) >> 1) & 1, (col + 1) & 1
+                            if b1 == b2:  # меняется только c
+                                rectangles.append(f"{var1 if row else f'¬{var1}'}{var2 if b1 else f'¬{var2}'}")
+                            elif c1 == c2:  # меняется только b
+                                rectangles.append(f"{var1 if row else f'¬{var1}'}{var3 if c1 else f'¬{var3}'}")
+
+            # Удаляем дубликаты
+            rectangles = list(dict.fromkeys(rectangles))
+
+            # Выбираем минимальное покрытие (упрощенный подход)
+            covered = [[False for _ in range(4)] for _ in range(2)]
+            result_parts = []
+
+            # Сначала добавляем самые большие области
+            for rect in rectangles:
+                if len(rect) == 1 or (len(rect) == 2 and rect[0] == '¬'):  # вся строка
+                    var = rect
+                    row = 1 if var == var1 else 0
+                    for col in range(4):
+                        if karnaugh[row][col] == 1:
+                            covered[row][col] = True
+                    result_parts.append(var)
+
+            # Затем добавляем оставшиеся
+            for row in range(2):
+                for col in range(4):
+                    if karnaugh[row][col] == 1 and not covered[row][col]:
+                        b, c = (col >> 1) & 1, col & 1
+                        part = f"{var2 if b else f'¬{var2}'}{var3 if c else f'¬{var3}'}"
+                        result_parts.append(part)
+                        covered[row][col] = True
+
+            # Удаляем дубликаты
+            result_parts = list(dict.fromkeys(result_parts))
+
+            print_step("Минимизированная форма")
+            result = " ∨ ".join(result_parts)
+            print(result)
+            return result
+
         else:
-            print(f"Импликанта {term} лишняя")
-
-    print("\nМинимизированная СКНФ:")
-    print(' ∧ '.join(essential) if essential else "Не удалось минимизировать")
-
-
-def minimize_sdnf_calculation(variables, terms):
-    """Минимизация СДНФ расчетным методом"""
-    print("\n2. Минимизация СДНФ расчетным методом")
-    print(f"Исходная СДНФ: {' ∨ '.join(terms)}")
-
-    # Этап склеивания
-    print("\nЭтап склеивания:")
-    new_terms = []
-    n = len(variables)
-
-    for i in range(len(terms)):
-        for j in range(i + 1, len(terms)):
-            # Находим общие переменные в скобках
-            diff = 0
-            common = []
-            for v in variables:
-                vi = v in terms[i].split('∧')
-                vj = v in terms[j].split('∧')
-                if vi != vj:
-                    diff += 1
-                    if diff > 1:
-                        break
-                elif vi and vj:
-                    common.append(v)
-
-            if diff == 1:
-                new_term = '∧'.join(common)
-                print(f"{terms[i]} ∧ {terms[j]} => {new_term}")
-                if new_term not in new_terms:
-                    new_terms.append(new_term)
-
-    print("\nРезультат после склеивания:")
-    print(' ∨ '.join(new_terms) if new_terms else "Невозможно минимизировать дальше")
-
-    # Проверка на лишние импликанты
-    print("\nПроверка на лишние импликанты:")
-    essential = []
-    for term in new_terms:
-        print(f"Проверяем {term}:")
-        temp = [t for t in new_terms if t != term]
-        if not temp:
-            essential.append(term)
-            continue
-
-        # Проверяем покрытие
-        covered = True
-        for t in terms:
-            if not any(all(v in t.split('∧') for v in et.split('∧')) for et in temp):
-                covered = False
-                break
-
-        if not covered:
-            essential.append(term)
-            print(f"Импликанта {term} необходима")
-        else:
-            print(f"Импликанта {term} лишняя")
-
-    print("\nМинимизированная СДНФ:")
-    print(' ∨ '.join(essential) if essential else "Не удалось минимизировать")
-
-
-def minimize_sknf_table(variables, terms):
-    """Минимизация СКНФ расчетно-табличным методом"""
-    print("\n3. Минимизация СКНФ расчетно-табличным методом")
-    print(f"Исходная СКНФ: {' ∧ '.join(terms)}")
-
-    # Этап склеивания
-    print("\nЭтап склеивания:")
-    new_terms = []
-    n = len(variables)
-
-    for i in range(len(terms)):
-        for j in range(i + 1, len(terms)):
-            diff = 0
-            common = []
-            for v in variables:
-                vi = v in terms[i].split('∨')
-                vj = v in terms[j].split('∨')
-                if vi != vj:
-                    diff += 1
-                    if diff > 1:
-                        break
-                elif vi and vj:
-                    common.append(v)
-
-            if diff == 1:
-                new_term = '∨'.join(common)
-                print(f"{terms[i]} ∨ {terms[j]} => {new_term}")
-                if new_term not in new_terms:
-                    new_terms.append(new_term)
-
-    print("\nРезультат после склеивания:")
-    print(' ∧ '.join(new_terms) if new_terms else "Невозможно минимизировать дальше")
-
-    # Построение таблицы покрытия
-    print("\nПостроение таблицы покрытия:")
-    header = "Импликанты\\Термы | " + " | ".join(terms)
-    print(header)
-    print("-" * len(header))
-
-    for term in new_terms:
-        coverage = []
-        for orig_term in terms:
-            covered = all(v in orig_term.split('∨') for v in term.split('∨'))
-            coverage.append('X' if covered else ' ')
-        print(f"{term:15} | " + " | ".join(coverage))
-
-    # Выбор существенных импликант
-    print("\nВыбор существенных импликант:")
-    essential = []
-    for i, term in enumerate(new_terms):
-        is_essential = False
-        for j in range(len(terms)):
-            count = 0
-            for k in range(len(new_terms)):
-                if all(v in terms[j].split('∨') for v in new_terms[k].split('∨')):
-                    count += 1
-            if count == 1 and all(v in terms[j].split('∨') for v in term.split('∨')):
-                is_essential = True
-                break
-
-        if is_essential:
-            essential.append(term)
-            print(f"Импликанта {term} существенная")
-
-    print("\nМинимизированная СКНФ:")
-    print(' ∧ '.join(essential) if essential else "Не удалось минимизировать")
+            print("Реализовано только для 3 переменных")
+            return ""
