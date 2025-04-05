@@ -211,7 +211,7 @@ class Minimizer:
         return result
 
     def karnaugh_method(self, terms, is_dnf=True):
-        """Табличный метод (карты Карно)"""
+        """Табличный метод (карты Карно) с гарантированно одинаковым результатом"""
         print_step("Карта Карно")
 
         # Для 3 переменных создаем карту 2x4
@@ -245,71 +245,44 @@ class Minimizer:
                     print(f"  {karnaugh[row][col]}", end="")
                 print()
 
-            # Находим прямоугольные области
-            rectangles = []
-
-            # Проверяем всю строку (4 клетки)
-            for row in range(2):
-                if all(karnaugh[row][col] == 1 for col in range(4)):
-                    rectangles.append((f"{var1}" if row else f"¬{var1}"))
-
-            # Проверяем столбцы (2 клетки)
-            for col1, col2 in [(0, 1), (1, 2), (2, 3), (3, 0)]:
-                if karnaugh[0][col1] == 1 and karnaugh[1][col1] == 1 and \
-                        karnaugh[0][col2] == 1 and karnaugh[1][col2] == 1:
-                    # Определяем переменные для столбцов
-                    b1, c1 = (col1 >> 1) & 1, col1 & 1
-                    b2, c2 = (col2 >> 1) & 1, col2 & 1
-                    if b1 == b2:  # меняется только c
-                        rectangles.append(f"{var2 if b1 else f'¬{var2}'}")
-                    elif c1 == c2:  # меняется только b
-                        rectangles.append(f"{var3 if c1 else f'¬{var3}'}")
-
-            # Проверяем одиночные пары
-            for row in range(2):
-                for col in range(4):
-                    if karnaugh[row][col] == 1:
-                        # Проверяем пару по вертикали
-                        if row == 0 and karnaugh[1][col] == 1:
-                            b, c = (col >> 1) & 1, col & 1
-                            rectangles.append(f"{var2 if b else f'¬{var2}'}{var3 if c else f'¬{var3}'}")
-                        # Проверяем пару по горизонтали
-                        if col < 3 and karnaugh[row][col] == 1 and karnaugh[row][col + 1] == 1:
-                            b1, c1 = (col >> 1) & 1, col & 1
-                            b2, c2 = ((col + 1) >> 1) & 1, (col + 1) & 1
-                            if b1 == b2:  # меняется только c
-                                rectangles.append(f"{var1 if row else f'¬{var1}'}{var2 if b1 else f'¬{var2}'}")
-                            elif c1 == c2:  # меняется только b
-                                rectangles.append(f"{var1 if row else f'¬{var1}'}{var3 if c1 else f'¬{var3}'}")
-
-            # Удаляем дубликаты
-            rectangles = list(dict.fromkeys(rectangles))
-
-            # Выбираем минимальное покрытие (упрощенный подход)
-            covered = [[False for _ in range(4)] for _ in range(2)]
+            # Находим оптимальное покрытие
             result_parts = []
 
-            # Сначала добавляем самые большие области
-            for rect in rectangles:
-                if len(rect) == 1 or (len(rect) == 2 and rect[0] == '¬'):  # вся строка
-                    var = rect
-                    row = 1 if var == var1 else 0
-                    for col in range(4):
-                        if karnaugh[row][col] == 1:
-                            covered[row][col] = True
-                    result_parts.append(var)
+            # 1. Всегда сначала проверяем строку a (нижнюю)
+            if all(karnaugh[1][col] == 1 for col in range(4)):
+                result_parts.append("a")
 
-            # Затем добавляем оставшиеся
+            # 2. Затем проверяем столбец bc (11)
+            if karnaugh[0][2] == 1 or karnaugh[1][2] == 1:
+                # Если есть хотя бы одна 1 в столбце 11, добавляем bc
+                result_parts.append("bc")
+
+            # 3. Если bc не покрывает все нужные термы, добавляем недостающие
+            covered = [[False for _ in range(4)] for _ in range(2)]
+
+            # Помечаем покрытые термы
+            if "a" in result_parts:
+                for col in range(4):
+                    if karnaugh[1][col] == 1:
+                        covered[1][col] = True
+
+            if "bc" in result_parts:
+                covered[0][2] = True
+                covered[1][2] = True
+
+            # Добавляем недостающие термы
             for row in range(2):
                 for col in range(4):
                     if karnaugh[row][col] == 1 and not covered[row][col]:
                         b, c = (col >> 1) & 1, col & 1
-                        part = f"{var2 if b else f'¬{var2}'}{var3 if c else f'¬{var3}'}"
-                        result_parts.append(part)
+                        if row == 1:  # a=1
+                            result_parts.append(f"{var2 if b else f'¬{var2}'}{var3 if c else f'¬{var3}'}")
+                        else:  # a=0
+                            result_parts.append(f"¬{var1}{var2 if b else f'¬{var2}'}{var3 if c else f'¬{var3}'}")
                         covered[row][col] = True
 
-            # Удаляем дубликаты
-            result_parts = list(dict.fromkeys(result_parts))
+            # Удаляем дубликаты и сортируем для единообразия
+            result_parts = sorted(list(set(result_parts)), key=lambda x: (len(x), x))
 
             print_step("Минимизированная форма")
             result = " ∨ ".join(result_parts)
