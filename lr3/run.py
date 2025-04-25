@@ -1,5 +1,6 @@
 from main import *
 
+
 def tokenize(expr):
     return re.findall(r'\(|\)|[a-e]+|!|¬|∧|&|∨|\||->|~', expr)
 
@@ -55,6 +56,16 @@ def build_sdnf_sknf(table, vars):
             sknf_terms.append(' ∨ '.join(f"{var if v == 0 else '¬' + var}" for var, v in zip(vars, vals)))
     return sdnf_terms, sknf_terms
 
+
+def print_minimization_results(title, method_name, terms, is_dnf, minimizer):
+    print(f"\n{title}:")
+    print("-" * 60)
+    method = getattr(minimizer, method_name)
+    result = method(terms, is_dnf)
+    print("-" * 60)
+    return result
+
+
 def main():
     expr = input("Введите логическую формулу: ")
     vars = sorted(set(re.findall(r'[a-e]', expr)))
@@ -69,35 +80,42 @@ def main():
 
     minimizer = BooleanMinimizer()
 
-    # Минимизация СДНФ расчетным методом
-    print("\n1. Минимизация СДНФ расчетным методом:")
-    min_sdnf_calc = minimizer.minimize_calculus_method(sdnf_terms, True)
+    # Минимизация расчетным методом
+    results = {
+        "1. СДНФ (расчетный метод)": ("minimize_calculus_method", sdnf_terms, True),
+        "2. СКНФ (расчетный метод)": ("minimize_calculus_method", sknf_terms, False),
+        "3. СДНФ (табличный метод)": ("minimize_table_calculus_method", sdnf_terms, True),
+        "4. СКНФ (табличный метод)": ("minimize_table_calculus_method", sknf_terms, False)
+    }
 
-    # Минимизация СКНФ расчетным методом
-    print("\n2. Минимизация СКНФ расчетным методом:")
-    min_sknf_calc = minimizer.minimize_calculus_method(sknf_terms, False)
+    minimized = {}
+    for title, (method, terms, is_dnf) in results.items():
+        minimized[title] = print_minimization_results(title, method, terms, is_dnf, minimizer)
 
-    # Минимизация СДНФ расчетно-табличным методом
-    print("\n3. Минимизация СДНФ расчетно-табличным методом:")
-    min_sdnf_table = minimizer.minimize_table_calculus_method(sdnf_terms, True)
-
-    # Минимизация СКНФ расчетно-табличным методом
-    print("\n4. Минимизация СКНФ расчетно-табличным методом:")
-    min_sknf_table = minimizer.minimize_table_calculus_method(sknf_terms, False)
-
-    # В основной программе:
+    # Минимизация методом Карно
     print("\nМинимизация методом Карно:")
     print("=" * 60)
 
-    print("\nДля СДНФ:")
-    print("-" * 60)
-    min_sdnf_karno = minimizer.minimize_karnaugh(sdnf_terms, vars, True)
+    karno_results = {
+        "СДНФ (Карно)": (sdnf_terms, True),
+        "СКНФ (Карно)": (sknf_terms, False)
+    }
 
-    print("\nДля СКНФ:")
-    print("-" * 60)
-    min_sknf_karno = minimizer.minimize_karnaugh(sknf_terms, vars, False)
+    for title, (terms, is_dnf) in karno_results.items():
+        print(f"\n{title}:")
+        print("-" * 60)
+        result = minimizer.minimize_karnaugh(terms, vars, is_dnf)
+        minimized[title] = result
+        print("-" * 60)
 
     print("=" * 60)
+
+    # Вывод всех результатов для сравнения
+    print("\nИтоговые результаты минимизации:")
+    for title, result in minimized.items():
+        print(f"\n{title}:")
+        print(result)
+
 
 if __name__ == "__main__":
     main()
