@@ -4,7 +4,6 @@ def print_matrix(matrix):
     for row in matrix:
         print(row)
 
-
 def main():
     print("Создание матрицы")
     rows = int(input("Введите количество строк: ") or 8)
@@ -23,6 +22,8 @@ def main():
         print("4. Логические операции (f3 и f12)")
         print("5. Поиск значения сверху/снизу")
         print("6. Сложение полей Aj и Bj для заданного Vj")
+        print("7. Вывод слова по индексу")
+        print("8. Запись разрядного столбца")
         print("0. Выход")
 
         choice = input("Выберите действие: ")
@@ -31,19 +32,12 @@ def main():
             print("\nМатрица:")
             print_matrix(dm.matrix)
 
-
-
         elif choice == "2":
-
             col = int(input(f"Введите номер столбца (0-{dm.cols - 1}): "))
-
             bit_pos = int(input(f"Введите номер бита (0-{dm.rows - 1}): "))
-
             bit_column = dm.get_bit_column(col, bit_pos)
-
             if bit_column is not None:
                 print(f"Разрядный столбец {col} для бита {bit_pos}:")
-
                 print(bit_column)
 
         elif choice == "3":
@@ -82,12 +76,23 @@ def main():
             else:
                 print("Ошибка: значение Vj должно быть от 0 до 7")
 
+        elif choice == "7":
+            row = int(input("Введите строку: "))
+            col = int(input("Введите столбец: "))
+            dm.print_word(row, col)
+
+        elif choice == "8":
+            col = int(input("Введите столбец: "))
+            bit_pos = int(input("Введите номер бита: "))
+            bits = input("Введите биты (например, '0 1 0 1'): ").split()
+            bit_values = [int(b) for b in bits]
+            dm.set_bit_column(col, bit_pos, bit_values)
+
         elif choice == "0":
             break
 
         else:
             print("Неверный выбор")
-
 
 if __name__ == "__main__":
     main()

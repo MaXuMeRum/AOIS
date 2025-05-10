@@ -11,14 +11,12 @@ class DiagonalMatrix:
         logging.basicConfig(level=logging.ERROR)
 
     def random_fill(self):
-        """Автоматическое заполнение матрицы случайными значениями"""
         for i in range(self.rows):
             for j in range(self.cols):
-                aj = random.randint(0, 7)  # 3 бита (0-7)
-                bj = random.randint(0, 7)  # 3 бита (0-7)
-                vj = random.randint(0, 7)  # 3 бита (0-7)
-                word = (vj << 6) | (bj << 3) | aj
-                self.set_value(i, j, word)
+                self.matrix[i][j] = random.randint(0, 1)  # Заполняем 0 или 1
+                # Обновляем bit_columns
+                for bit in range(self.rows):
+                    self.bit_columns[j][bit] = (self.matrix[i][j] >> bit) & 1
 
     def set_value(self, row, col, value):
         if 0 <= row < self.rows and 0 <= col < self.cols:
@@ -51,8 +49,12 @@ class DiagonalMatrix:
 
     def logical_f1_f14(self, col1, col2):
         if 0 <= col1 < self.cols and 0 <= col2 < self.cols:
-            and_result = [a & b for a, b in zip(self.bit_columns[col1], self.bit_columns[col2])]
-            or_result = [a | b for a, b in zip(self.bit_columns[col1], self.bit_columns[col2])]
+            # Берём целые числа из столбцов (если матрица 0/1)
+            col1_data = [self.matrix[i][col1] for i in range(self.rows)]
+            col2_data = [self.matrix[i][col2] for i in range(self.rows)]
+
+            and_result = [a & b for a, b in zip(col1_data, col2_data)]
+            or_result = [a | b for a, b in zip(col1_data, col2_data)]
             return and_result, or_result
         else:
             print("Ошибка: Столбцы вне диапазона")
@@ -60,9 +62,19 @@ class DiagonalMatrix:
 
     def logical_f3_f12(self, col1, col2):
         if 0 <= col1 < self.cols and 0 <= col2 < self.cols:
-            nand_result = [~(a & b) & 1 for a, b in zip(self.bit_columns[col1], self.bit_columns[col2])]
-            nor_result = [~(a | b) & 1 for a, b in zip(self.bit_columns[col1], self.bit_columns[col2])]
+            # Берём значения из столбцов (не биты!)
+            col1_data = [self.matrix[i][col1] for i in range(self.rows)]
+            col2_data = [self.matrix[i][col2] for i in range(self.rows)]
+
+            # NAND = NOT AND
+            nand_result = [int(not (a and b)) for a, b in zip(col1_data, col2_data)]
+            # NOR = NOT OR
+            nor_result = [int(not (a or b)) for a, b in zip(col1_data, col2_data)]
+
             return nand_result, nor_result
+        else:
+            print("Ошибка: Столбцы вне диапазона")
+            return None, None
 
     def search_above(self, col, row, value):
         if 0 <= col < self.cols and 0 <= row < self.rows:
@@ -96,3 +108,24 @@ class DiagonalMatrix:
                     sum_ab = aj + bj
                     result.append((i, j, aj, bj, sum_ab))
         return result
+
+    def set_bit_column(self, col, bit_pos, bit_values):
+        """Устанавливает разрядный столбец для бита bit_pos"""
+        if 0 <= col < self.cols and 0 <= bit_pos < self.rows:
+            for row in range(self.rows):
+                # Обновляем бит в слове
+                if bit_values[row] == 1:
+                    self.matrix[row][col] |= (1 << bit_pos)
+                else:
+                    self.matrix[row][col] &= ~(1 << bit_pos)
+                # Обновляем bit_columns
+                self.bit_columns[col][bit_pos] = bit_values[row]
+        else:
+            logging.error("Неверные индексы")
+
+    def print_word(self, row, col):
+        """Печатает слово из матрицы по заданным индексам"""
+        if 0 <= row < self.rows and 0 <= col < self.cols:
+            print(f"Слово в позиции ({row}, {col}): {self.matrix[row][col]}")
+        else:
+            print("Ошибка: Неверные индексы")
