@@ -1,6 +1,5 @@
 import random
 from typing import List, Tuple, Union
-from run import *
 
 
 class CustomDiagonalGrid:
@@ -35,29 +34,37 @@ class CustomDiagonalGrid:
             result.append(self.grid[row_idx][col_idx])
         return result
 
-    def perform_logical_or(self, col_a: int, col_b: int, result_col: int) -> List[int]:
-        data_a = self.fetch_data_row(col_a, col_a, self.num_rows)
-        data_b = self.fetch_data_row(col_b, col_b, self.num_rows)
-        result = [1 if (a or b) else 0 for a, b in zip(data_a, data_b)]
-        self.store_data_row(result, result_col, result_col)
+    def f1(self, col_a: int, col_b: int, result_col: int) -> List[int]:
+        """Конъюнкция (логическое И) между столбцами col_a и col_b"""
+        data_a = [self.grid[row][col_a] for row in range(self.num_rows)]
+        data_b = [self.grid[row][col_b] for row in range(self.num_rows)]
+        result = [a & b for a, b in zip(data_a, data_b)]  # Побитовое И
+        for row in range(self.num_rows):
+            self.grid[row][result_col] = result[row]
         return result
 
-    def perform_logical_nor(self, col_a: int, col_b: int, result_col: int) -> List[int]:
-        data_a = self.fetch_data_row(col_a, col_a, self.num_rows)
-        data_b = self.fetch_data_row(col_b, col_b, self.num_rows)
-        result = [1 if not (a or b) else 0 for a, b in zip(data_a, data_b)]
-        self.store_data_row(result, result_col, result_col)
+    def f3(self, col_src: int, col_dummy: int, result_col: int) -> List[int]:
+        """Повторение 1-го аргумента (col_src), col_dummy игнорируется"""
+        data = [self.grid[row][col_src] for row in range(self.num_rows)]
+        for row in range(self.num_rows):
+            self.grid[row][result_col] = data[row]
+        return data
+
+    def f12(self, col_src: int, col_dummy: int, result_col: int) -> List[int]:
+        """Отрицание 1-го аргумента (col_src), col_dummy игнорируется"""
+        data = [self.grid[row][col_src] for row in range(self.num_rows)]
+        result = [1 if bit == 0 else 0 for bit in data]  # Инверсия
+        for row in range(self.num_rows):
+            self.grid[row][result_col] = result[row]
         return result
 
-    def perform_copy_operation(self, col_src: int, col_dummy: int, result_col: int) -> List[int]:
-        result = self.fetch_data_row(col_src, col_src, self.num_rows)
-        self.store_data_row(result, result_col, result_col)
-        return result
-
-    def perform_invert_operation(self, col_src: int, col_dummy: int, result_col: int) -> List[int]:
-        data = self.fetch_data_row(col_src, col_src, self.num_rows)
-        result = [1 if not bit else 0 for bit in data]
-        self.store_data_row(result, result_col, result_col)
+    def f14(self, col_a: int, col_b: int, result_col: int) -> List[int]:
+        """Логическое И-НЕ (отрицание конъюнкции)"""
+        data_a = [self.grid[row][col_a] for row in range(self.num_rows)]
+        data_b = [self.grid[row][col_b] for row in range(self.num_rows)]
+        result = [1 if not (a & b) else 0 for a, b in zip(data_a, data_b)]  # И-НЕ
+        for row in range(self.num_rows):
+            self.grid[row][result_col] = result[row]
         return result
 
     def binary_addition(self, num_a: List[int], num_b: List[int]) -> List[int]:
