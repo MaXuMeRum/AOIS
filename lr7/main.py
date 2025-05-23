@@ -1,131 +1,158 @@
 import random
-import logging
+from typing import List, Tuple, Union
+from run import *
 
-class DiagonalMatrix:
-    def __init__(self, rows, cols):
-        self.rows = rows
-        self.cols = cols
-        self.matrix = [[0 for _ in range(cols)] for _ in range(rows)]
-        self.bit_columns = [[0 for _ in range(rows)] for _ in range(cols)]
-        self.random_fill()
-        logging.basicConfig(level=logging.ERROR)
 
-    def random_fill(self):
-        for i in range(self.rows):
-            for j in range(self.cols):
-                self.matrix[i][j] = random.randint(0, 1)  # Заполняем 0 или 1
-                # Обновляем bit_columns
-                for bit in range(self.rows):
-                    self.bit_columns[j][bit] = (self.matrix[i][j] >> bit) & 1
+class CustomDiagonalGrid:
+    def __init__(self, num_rows: int, num_cols: int):
+        self.num_rows = num_rows
+        self.num_cols = num_cols
+        self.grid = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
 
-    def set_value(self, row, col, value):
-        if 0 <= row < self.rows and 0 <= col < self.cols:
-            self.matrix[row][col] = value
-            for i in range(self.rows):
-                self.bit_columns[col][i] = (self.matrix[i][col] >> row) & 1
-        else:
-            logging.error("Индексы вне диапазона")
+    def store_data_row(self, data: List[int], begin_row: int, col: int) -> None:
+        for idx, value in enumerate(data):
+            row_idx = (begin_row + idx) % self.num_rows
+            self.grid[row_idx][col] = value
 
-    def get_value(self, row, col):
-        if 0 <= row < self.rows and 0 <= col < self.cols:
-            return self.matrix[row][col]
-        else:
-            logging.error("Индексы вне диапазона")
-            return None
+    def store_diagonal_data(self, data: List[int], begin_row: int, begin_col: int) -> None:
+        for idx, value in enumerate(data):
+            row_idx = (begin_row + idx) % self.num_rows
+            col_idx = (begin_col + idx) % self.num_cols
+            self.grid[row_idx][col_idx] = value
 
-    def get_bit_column(self, col, bit_pos=None):
-        """Возвращает разрядный столбец для конкретного бита"""
-        if 0 <= col < self.cols:
-            if bit_pos is None:
-                bit_pos = int(input(f"Введите номер бита (0-{self.rows-1}): "))
-            if 0 <= bit_pos < self.rows:
-                return [(self.matrix[row][col] >> bit_pos) & 1 for row in range(self.rows)]
-            else:
-                print(f"Ошибка: Номер бита должен быть от 0 до {self.rows-1}")
-                return None
-        else:
-            print(f"Ошибка: Номер столбца должен быть от 0 до {self.cols-1}")
-            return None
-
-    def logical_f1_f14(self, col1, col2):
-        if 0 <= col1 < self.cols and 0 <= col2 < self.cols:
-            # Берём целые числа из столбцов (если матрица 0/1)
-            col1_data = [self.matrix[i][col1] for i in range(self.rows)]
-            col2_data = [self.matrix[i][col2] for i in range(self.rows)]
-
-            and_result = [a & b for a, b in zip(col1_data, col2_data)]
-            or_result = [a | b for a, b in zip(col1_data, col2_data)]
-            return and_result, or_result
-        else:
-            print("Ошибка: Столбцы вне диапазона")
-            return None, None
-
-    def logical_f3_f12(self, col1, col2):
-        if 0 <= col1 < self.cols and 0 <= col2 < self.cols:
-            # Берём значения из столбцов (не биты!)
-            col1_data = [self.matrix[i][col1] for i in range(self.rows)]
-            col2_data = [self.matrix[i][col2] for i in range(self.rows)]
-
-            # NAND = NOT AND
-            nand_result = [int(not (a and b)) for a, b in zip(col1_data, col2_data)]
-            # NOR = NOT OR
-            nor_result = [int(not (a or b)) for a, b in zip(col1_data, col2_data)]
-
-            return nand_result, nor_result
-        else:
-            print("Ошибка: Столбцы вне диапазона")
-            return None, None
-
-    def search_above(self, col, row, value):
-        if 0 <= col < self.cols and 0 <= row < self.rows:
-            for r in range(row - 1, -1, -1):
-                if self.matrix[r][col] == value:
-                    return r, col
-            return None
-        else:
-            logging.error("Индексы вне диапазона")
-            return None
-
-    def search_below(self, col, row, value):
-        if 0 <= col < self.cols and 0 <= row < self.rows:
-            for r in range(row + 1, self.rows):
-                if self.matrix[r][col] == value:
-                    return r, col
-            return None
-        else:
-            print("Ошибка: Индексы вне диапазона")
-            return None
-
-    def add_fields_with_condition(self, v_value):
+    def fetch_data_row(self, begin_row: int, col: int, length: int) -> List[int]:
         result = []
-        for j in range(self.cols):
-            for i in range(self.rows):
-                word = self.matrix[i][j]
-                vj = (word >> 6) & 0b111
-                if vj == v_value:
-                    aj = (word >> 0) & 0b111
-                    bj = (word >> 3) & 0b111
-                    sum_ab = aj + bj
-                    result.append((i, j, aj, bj, sum_ab))
+        for i in range(length):
+            row_idx = (begin_row + i) % self.num_rows
+            result.append(self.grid[row_idx][col])
         return result
 
-    def set_bit_column(self, col, bit_pos, bit_values):
-        """Устанавливает разрядный столбец для бита bit_pos"""
-        if 0 <= col < self.cols and 0 <= bit_pos < self.rows:
-            for row in range(self.rows):
-                # Обновляем бит в слове
-                if bit_values[row] == 1:
-                    self.matrix[row][col] |= (1 << bit_pos)
-                else:
-                    self.matrix[row][col] &= ~(1 << bit_pos)
-                # Обновляем bit_columns
-                self.bit_columns[col][bit_pos] = bit_values[row]
-        else:
-            logging.error("Неверные индексы")
+    def fetch_diagonal_data(self, begin_row: int, begin_col: int, length: int) -> List[int]:
+        result = []
+        for i in range(length):
+            row_idx = (begin_row + i) % self.num_rows
+            col_idx = (begin_col + i) % self.num_cols
+            result.append(self.grid[row_idx][col_idx])
+        return result
 
-    def print_word(self, row, col):
-        """Печатает слово из матрицы по заданным индексам"""
-        if 0 <= row < self.rows and 0 <= col < self.cols:
-            print(f"Слово в позиции ({row}, {col}): {self.matrix[row][col]}")
-        else:
-            print("Ошибка: Неверные индексы")
+    def perform_logical_or(self, col_a: int, col_b: int, result_col: int) -> List[int]:
+        data_a = self.fetch_data_row(col_a, col_a, self.num_rows)
+        data_b = self.fetch_data_row(col_b, col_b, self.num_rows)
+        result = [1 if (a or b) else 0 for a, b in zip(data_a, data_b)]
+        self.store_data_row(result, result_col, result_col)
+        return result
+
+    def perform_logical_nor(self, col_a: int, col_b: int, result_col: int) -> List[int]:
+        data_a = self.fetch_data_row(col_a, col_a, self.num_rows)
+        data_b = self.fetch_data_row(col_b, col_b, self.num_rows)
+        result = [1 if not (a or b) else 0 for a, b in zip(data_a, data_b)]
+        self.store_data_row(result, result_col, result_col)
+        return result
+
+    def perform_copy_operation(self, col_src: int, col_dummy: int, result_col: int) -> List[int]:
+        result = self.fetch_data_row(col_src, col_src, self.num_rows)
+        self.store_data_row(result, result_col, result_col)
+        return result
+
+    def perform_invert_operation(self, col_src: int, col_dummy: int, result_col: int) -> List[int]:
+        data = self.fetch_data_row(col_src, col_src, self.num_rows)
+        result = [1 if not bit else 0 for bit in data]
+        self.store_data_row(result, result_col, result_col)
+        return result
+
+    def binary_addition(self, num_a: List[int], num_b: List[int]) -> List[int]:
+        carry = 0
+        result = []
+        for a, b in zip(reversed(num_a), reversed(num_b)):
+            total = a + b + carry
+            result.insert(0, total % 2)
+            carry = total // 2
+        if carry:
+            result.insert(0, carry)
+        return result
+
+    def process_key_fields(self, key_data: List[int]) -> None:
+        found = False
+        for col in range(self.num_cols):
+            row_data = self.fetch_data_row(col, col, self.num_rows)
+            if row_data[:len(key_data)] == key_data:
+                found = True
+                print(f"Match found in column {col}: {''.join(map(str, row_data))}")
+
+                v_len, ab_len, s_len = 3, 4, 5
+                V = row_data[:v_len]
+                A = row_data[v_len:v_len + ab_len]
+                B = row_data[v_len + ab_len:v_len + 2 * ab_len]
+                S = row_data[v_len + 2 * ab_len:v_len + 2 * ab_len + s_len]
+
+                print(f"V (3 bits): {''.join(map(str, V))}")
+                print(f"A (4 bits): {''.join(map(str, A))}")
+                print(f"B (4 bits): {''.join(map(str, B))}")
+                print(f"S (5 bits): {''.join(map(str, S))}")
+
+                sum_ab = self.binary_addition(A, B)
+                sum_ab = [0] * (s_len - len(sum_ab)) + sum_ab[:s_len]
+
+                print(f"Sum A+B: {''.join(map(str, sum_ab))}")
+
+                new_row = V + A + B + sum_ab
+                new_row += [0] * (self.num_rows - len(new_row))
+                self.store_data_row(new_row, col, col)
+
+        if not found:
+            print(f"No matches for key: {''.join(map(str, key_data))}")
+
+    def find_closest_values(self, target: List[int]) -> Tuple[int, List[int], int, List[int]]:
+        target_adjusted = target + [0] * (self.num_rows - len(target))
+        target_adjusted = target_adjusted[:self.num_rows]
+
+        below_cols = []
+        above_cols = []
+
+        for col in range(self.num_cols):
+            data = self.fetch_data_row(col, col, self.num_rows)
+            g = l = 0
+            for t, d in zip(target_adjusted, data):
+                g_new = g or (not t and d and not l)
+                l_new = l or (t and not d and not g)
+                g, l = g_new, l_new
+
+            if not g and l:
+                below_cols.append(col)
+            elif g and not l:
+                above_cols.append(col)
+
+        max_below = None
+        if below_cols:
+            current_cols = below_cols
+            for bit_pos in range(self.num_rows):
+                next_cols = []
+                for col in current_cols:
+                    data = self.fetch_data_row(col, col, self.num_rows)
+                    if data[bit_pos]:
+                        next_cols.append(col)
+                if next_cols:
+                    current_cols = next_cols
+            max_below = current_cols[0] if current_cols else None
+
+        min_above = None
+        if above_cols:
+            current_cols = above_cols
+            for bit_pos in range(self.num_rows):
+                next_cols = []
+                for col in current_cols:
+                    data = self.fetch_data_row(col, col, self.num_rows)
+                    if not data[bit_pos]:
+                        next_cols.append(col)
+                if next_cols:
+                    current_cols = next_cols
+            min_above = current_cols[0] if current_cols else None
+
+        below_data = self.fetch_data_row(max_below, max_below, self.num_rows) if max_below is not None else []
+        above_data = self.fetch_data_row(min_above, min_above, self.num_rows) if min_above is not None else []
+
+        return (max_below, below_data, min_above, above_data)
+
+    def display_grid(self) -> None:
+        for row in self.grid:
+            print(' '.join(map(str, row)))
